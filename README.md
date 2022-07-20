@@ -20,13 +20,13 @@
 </p>
 
 ## Background
-see [Background.md](Background.md)
+See [Background.md](Background.md)
 
 ## Features
 
 * Kill specific process by hash. 
   - Use [uranium62/xxHash](https://github.com/uranium62/xxHash)
-* Click-to-run or run as a Windows background service
+* Click-to-run / Run as a Windows background service
   - Use [Worker Services](https://docs.microsoft.com/en-us/dotnet/core/extensions/workers)
 
 ## Requirements
@@ -42,6 +42,10 @@ sc.exe start ProcessHunter // to start a service
 sc.exe stop ProcessHunter // to stop a service
 sc.exe delete ProcessHunter // to delete a service
 ```
+
+## Download
+
+See [Releases](https://github.com/tangsongxiaoba/ProcessHunter/releases)
 
 ## License
 GNU Affero General Public License 3.0
