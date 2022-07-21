@@ -1,6 +1,6 @@
-using Standart.Hash.xxHash;
 using System.Diagnostics;
 using System.Management;
+using System.Security.Cryptography;
 
 namespace ProcessHunter
 {
@@ -13,34 +13,31 @@ namespace ProcessHunter
             _logger = logger;
         }
 
-        public static ulong GetHash(string path) //Standart.Hash.xxHash
+        public static int GetHash(string? path)
         {
             if (path == null) return 0;
             FileStream fileStream = new(path, FileMode.Open, FileAccess.Read);
-            var xxh64 = xxHash64.ComputeHash(fileStream);
+            byte[] hash = SHA1.Create().ComputeHash(fileStream);
             fileStream.Close();
-            return xxh64;
+            return (hash[0] & 0xFF)
+                    | ((hash[1] & 0xFF) << 8)
+                    | ((hash[2] & 0xFF) << 16)
+                    | ((hash[3] & 0xFF) << 24);
         }
 
-        protected class ProcessProperties
+        protected struct ProcessProperties
         {
-            public string? Name;
-            public List<ulong>? Hash;
-            public List<int>? Size;
-            public List<string>? Path;
+            public HashSet<int> Hash;
+            public HashSet<int?> Size;
         }
 
-        protected List<ProcessProperties> ban = new();
+        protected Dictionary<string, ProcessProperties> _ban = new();
 
         public override Task StartAsync(CancellationToken cancellationToken)
         {
-            ProcessProperties[] _ban = new ProcessProperties[]
-            {
-                new ProcessProperties{ Name = "War3", Hash = new(),Size = new(), Path = new()},
-                new ProcessProperties{ Name = "Warcraft III", Hash = new(),Size = new(), Path = new()},
-                new ProcessProperties{ Name = "Frozen Throne", Hash = new(),Size = new(), Path = new()},
-            };
-            ban.AddRange(_ban);
+            _ban.Add("War3", new ProcessProperties() { Hash = new(), Size = new() });
+            _ban.Add("Fronzen Throne", new ProcessProperties() { Hash = new(), Size = new() });
+            _ban.Add("Warcraft III", new ProcessProperties() { Hash = new(), Size = new() });
             return base.StartAsync(cancellationToken);
         }
 
@@ -49,31 +46,30 @@ namespace ProcessHunter
             int processID = Convert.ToInt32(eventArgs.NewEvent.Properties["ProcessID"].Value);
             Process process = Process.GetProcessById(processID);
             string name = process.ProcessName;
-            string path = process.MainModule.FileName;
-            int size = process.MainModule.ModuleMemorySize;
-            int len = ban.Count;
-            for (int i = 0; i < len; ++i)
+            string? path = process.MainModule?.FileName;
+            int? size = process.MainModule?.ModuleMemorySize;
+            if(_ban.ContainsKey(name))
             {
-                bool flag = false;
-                if (name == ban[i].Name) flag = true;
-                else
+                process.Kill();
+                int hash = GetHash(path);
+                if (_ban[name].Hash.Contains(hash) == false) _ban[name].Hash.Add(hash);
+                if (_ban[name].Size.Contains(size) == false) _ban[name].Size.Add(size);
+                return;
+            }
+            else
+            {
+                Dictionary<string, ProcessProperties>.ValueCollection ban = _ban.Values;
+                foreach (ProcessProperties p in ban)
                 {
-                    if (ban[i].Size.Any(x => x == size))
+                    if (p.Size.Contains(size))
                     {
-                        ulong hash = GetHash(path);
-                        if (ban[i].Hash.Any(x => x == hash))
+                        int hash = GetHash(path);
+                        if (p.Hash.Contains(hash))
                         {
-                            flag = true;
+                            process.Kill();
+                            return;
                         }
                     }
-                }
-                if (flag)
-                {
-                    ulong hash = GetHash(path);
-                    if (ban[i].Hash.Any(x => x == hash) == false) ban[i].Hash.Add(hash);
-                    if (ban[i].Size.Any(x => x == size) == false) ban[i].Size.Add(size);
-                    if (ban[i].Path.Any(x => x == path) == false) ban[i].Path.Add(path);
-                    process.Kill();
                 }
             }
         }
@@ -88,7 +84,7 @@ namespace ProcessHunter
                 startWatch.Start();
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    Thread.Sleep(50);
+                    Thread.Sleep(1);
                 }
                 startWatch.Stop();
             }, cancellationToken);

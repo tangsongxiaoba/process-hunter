@@ -24,8 +24,7 @@ See [Background.md](Background.md)
 
 ## Features
 
-* Kill specific process by hash. 
-  - Use [uranium62/xxHash](https://github.com/uranium62/xxHash)
+* Kill specific process by SHA-1. 
 * Click-to-run / Run as a Windows background service
   - Use [Worker Services](https://docs.microsoft.com/en-us/dotnet/core/extensions/workers)
 
